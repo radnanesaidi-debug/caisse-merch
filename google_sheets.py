@@ -9,8 +9,10 @@ def get_google_sheet(sheet_name):
         creds = Credentials.from_service_account_info(info)
         
         client = gspread.authorize(creds)
-        # Assure-toi que le nom du fichier Google Sheet est bien celui-là
-        spreadsheet = client.open("Ventes_Merch")
+        
+        # NOM DU FICHIER CORRIGÉ ICI
+        spreadsheet = client.open("Caisse_Merchandising")
+        
         sheet = spreadsheet.worksheet(sheet_name)
         return sheet, None
     except Exception as e:
