@@ -10,12 +10,9 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapi
 
 @st.cache_resource(ttl=1200)
 def get_gspread_client():
-    # MÉTHODE SECRETS : On lit le JSON depuis la mémoire de Streamlit
     service_account_info = json.loads(st.secrets["gcp_service_account"])
-    # Nettoyage de la clé (évite l'erreur de signature)
     if "private_key" in service_account_info:
         service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
-    
     creds = Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
     return gspread.authorize(creds)
 
@@ -26,18 +23,33 @@ def get_or_create_spreadsheet():
 def load_products(spreadsheet):
     try:
         ws = spreadsheet.worksheet(SHEET_PRODUCTS)
-        records = ws.get_all_records()
-        return records if records else DEFAULT_PRODUCTS
+        return ws.get_all_records()
     except:
         return DEFAULT_PRODUCTS
 
 def record_sale(spreadsheet, stand, product, size, price):
-    ws = spreadsheet.worksheet(SHEET_SALES)
+    # 1. Enregistre la vente
+    ws_sales = spreadsheet.worksheet(SHEET_SALES)
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     sale_id = datetime.now().strftime("%H%M%S")
-    # Ordre : ID, Date, Stand, Produit, Taille, Prix, Qté, Total, Statut
     row = [sale_id, now, stand, product, size, price, 1, price, "VALIDE"]
-    ws.append_row(row, value_input_option="USER_ENTERED")
+    ws_sales.append_row(row, value_input_option="USER_ENTERED")
+
+    # 2. Déduction du Stock
+    try:
+        ws_prod = spreadsheet.worksheet(SHEET_PRODUCTS)
+        all_prods = ws_prod.get_all_values()
+        
+        # On cherche la ligne qui correspond au Produit ET à la Taille
+        for idx, r in enumerate(all_prods):
+            if r[0] == product and r[1] == str(size):
+                col_map = {"Stand VVIP": 5, "VIP": 6, "ZONE 2": 7}
+                col_idx = col_map.get(stand)
+                current_stock = int(r[col_idx-1])
+                ws_prod.update_cell(idx + 1, col_idx, current_stock - 1)
+                break
+    except Exception as e:
+        st.error(f"Erreur stock : {e}")
 
 def load_sales(spreadsheet):
     try:
