@@ -14,7 +14,7 @@ sheet, error = get_google_sheet("Ventes")
 
 if error:
     st.error(f"⚠️ Erreur de connexion Google : {error}")
-    st.info("Astuce : Vérifie que le fichier 'Ventes_Merch' est bien partagé avec l'adresse email de ton compte de service.")
+    st.info("Astuce : Vérifie que ton fichier Google Sheet s'appelle bien 'Ventes_Merch'.")
 else:
     # --- FORMULAIRE DE VENTE ---
     with st.container():
