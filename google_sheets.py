@@ -1,19 +1,15 @@
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import os
-
-# Configuration Google Sheets
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-SERVICE_ACCOUNT_FILE = "credential.json"
+from google.oauth2.service_account import Credentials
+import streamlit as st
 
 def get_google_sheet(sheet_name):
     try:
-        if not os.path.exists(SERVICE_ACCOUNT_FILE):
-            return None, f"Fichier {SERVICE_ACCOUNT_FILE} introuvable."
-            
-        creds = ServiceAccountCredentials.from_json_keyfile_name(SERVICE_ACCOUNT_FILE, SCOPES)
-        client = gspread.authorize(creds)
+        # Utilise les secrets configurés dans Streamlit Cloud
+        info = st.secrets["gcp_service_account"]
+        creds = Credentials.from_service_account_info(info)
         
+        client = gspread.authorize(creds)
+        # Assure-toi que le nom du fichier Google Sheet est bien celui-là
         spreadsheet = client.open("Ventes_Merch")
         sheet = spreadsheet.worksheet(sheet_name)
         return sheet, None
