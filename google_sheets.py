@@ -20,9 +20,10 @@ def get_or_create_spreadsheet():
     client = get_gspread_client()
     return client.open(SPREADSHEET_NAME)
 
-def load_products(spreadsheet):
+@st.cache_data(ttl=60)
+def load_products(_spreadsheet):
     try:
-        ws = spreadsheet.worksheet(SHEET_PRODUCTS)
+        ws = _spreadsheet.worksheet(SHEET_PRODUCTS)
         return ws.get_all_records()
     except:
         return DEFAULT_PRODUCTS
@@ -47,13 +48,17 @@ def record_sale(spreadsheet, stand, product, size, price):
                 col_idx = col_map.get(stand)
                 current_stock = int(r[col_idx-1])
                 ws_prod.update_cell(idx + 1, col_idx, current_stock - 1)
+                
+                # IMPORTANT : On vide le cache pour forcer la mise à jour de l'affichage
+                st.cache_data.clear()
                 break
     except Exception as e:
         st.error(f"Erreur stock : {e}")
 
-def load_sales(spreadsheet):
+@st.cache_data(ttl=60)
+def load_sales(_spreadsheet):
     try:
-        ws = spreadsheet.worksheet(SHEET_SALES)
+        ws = _spreadsheet.worksheet(SHEET_SALES)
         data = ws.get_all_values()
         if len(data) > 1:
             return pd.DataFrame(data[1:], columns=["ID", "Date", "Stand", "Produit", "Taille", "Prix", "Qté", "Total", "Statut"])
@@ -67,5 +72,6 @@ def cancel_last_sale(spreadsheet):
     for i in range(len(all_vals)-1, 0, -1):
         if all_vals[i][8] == "VALIDE":
             ws.update_cell(i+1, 9, "ANNULÉE")
+            st.cache_data.clear() # On vide le cache ici aussi
             return True
     return False
