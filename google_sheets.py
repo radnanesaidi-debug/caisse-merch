@@ -5,10 +5,17 @@ import json
 
 def get_google_sheet(sheet_name):
     try:
-        # On récupère le bloc JSON complet des secrets
-        service_account_info = json.loads(st.secrets["gcp_service_account"])
+        # On récupère le secret
+        res = st.secrets["gcp_service_account"]
         
-        # PROTECTION CRITIQUE : On force le formatage de la clé privée
+        # Si c'est une chaîne (le JSON complet), on le décode
+        if isinstance(res, str):
+            service_account_info = json.loads(res)
+        else:
+            # Si Streamlit l'a déjà converti en dictionnaire
+            service_account_info = dict(res)
+        
+        # --- RÉPARATION CRITIQUE DE LA CLÉ ---
         if "private_key" in service_account_info:
             service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
 
@@ -20,7 +27,7 @@ def get_google_sheet(sheet_name):
         creds = Credentials.from_service_account_info(service_account_info, scopes=scopes)
         client = gspread.authorize(creds)
         
-        # Ton fichier Sheets
+        # Nom exact de ton fichier vu sur ta capture
         spreadsheet = client.open("Caisse_Merchandising")
         sheet = spreadsheet.worksheet(sheet_name)
         return sheet, None
