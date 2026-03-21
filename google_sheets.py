@@ -20,7 +20,7 @@ def get_or_create_spreadsheet():
     client = get_gspread_client()
     return client.open(SPREADSHEET_NAME)
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=25)
 def load_products(_spreadsheet):
     try:
         ws = _spreadsheet.worksheet(SHEET_PRODUCTS)
