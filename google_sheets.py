@@ -1,18 +1,18 @@
 import gspread
 from google.oauth2.service_account import Credentials
 import streamlit as st
+import json
 
 def get_google_sheet(sheet_name):
     try:
-        # Utilise les secrets configurés dans Streamlit Cloud
-        info = st.secrets["gcp_service_account"]
-        creds = Credentials.from_service_account_info(info)
+        # On lit le secret comme une chaîne de caractères JSON
+        service_account_info = json.loads(st.secrets["gcp_service_account"])
+        creds = Credentials.from_service_account_info(service_account_info)
         
         client = gspread.authorize(creds)
         
-        # NOM DU FICHIER CORRIGÉ ICI
+        # On utilise ton vrai nom de fichier
         spreadsheet = client.open("Caisse_Merchandising")
-        
         sheet = spreadsheet.worksheet(sheet_name)
         return sheet, None
     except Exception as e:
