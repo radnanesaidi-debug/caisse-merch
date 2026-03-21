@@ -5,32 +5,19 @@ import json
 
 def get_google_sheet(sheet_name):
     try:
-        # On récupère le secret
+        # Récupération du secret
         res = st.secrets["gcp_service_account"]
+        info = json.loads(res) if isinstance(res, str) else dict(res)
         
-        # Si c'est une chaîne (le JSON complet), on le décode
-        if isinstance(res, str):
-            service_account_info = json.loads(res)
-        else:
-            # Si Streamlit l'a déjà converti en dictionnaire
-            service_account_info = dict(res)
-        
-        # --- RÉPARATION CRITIQUE DE LA CLÉ ---
-        if "private_key" in service_account_info:
-            service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
+        # Nettoyage automatique de la clé privée
+        if "private_key" in info:
+            info["private_key"] = info["private_key"].replace("\\n", "\n")
 
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
-        
-        creds = Credentials.from_service_account_info(service_account_info, scopes=scopes)
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(info, scopes=scopes)
         client = gspread.authorize(creds)
         
-        # Nom exact de ton fichier vu sur ta capture
-        spreadsheet = client.open("Caisse_Merchandising")
-        sheet = spreadsheet.worksheet(sheet_name)
-        return sheet, None
+        return client.open("Caisse_Merchandising").worksheet(sheet_name), None
     except Exception as e:
         return None, str(e)
 
