@@ -3,42 +3,68 @@ import pandas as pd
 from google_sheets import get_google_sheet, save_sale
 from datetime import datetime
 
-# Titre de l'application
-APP_TITLE = "CAISSE MERCHANDISING"
+# Configuration de la page
+st.set_page_config(page_title="CAISSE MERCHANDISING", layout="wide")
 
-st.set_page_config(page_title=APP_TITLE, layout="wide")
-st.title(f"🏟️ {APP_TITLE}")
+# --- TES DONNÉES OFFICIELLES ---
+# Liste des produits avec leurs prix par défaut
+PRODUITS_PRIX = {
+    "Tracksuit Black": 650,
+    "Never Split Tee": 250,
+    "Ana Wydadia": 200,
+    "Bob": 150,
+    "Scarf": 150,
+    "Cap": 150
+}
 
-# Initialisation de la connexion
+STANDS = ["Stand VVIP", "Stand VIP", "ZONE 2"]
+TAILLES = ["S", "M", "L", "XL", "XXL", "Unique"]
+
+# Interface
+st.title("🏟️ CAISSE MERCHANDISING")
+
+# Connexion au Sheet (onglet "Ventes")
 sheet, error = get_google_sheet("Ventes")
 
 if error:
-    st.error(f"⚠️ Erreur de connexion Google : {error}")
-    st.info("Astuce : Vérifie que ton fichier Google Sheet s'appelle bien 'Ventes_Merch'.")
+    st.error(f"Erreur de connexion : {error}")
 else:
-    # --- FORMULAIRE DE VENTE ---
     with st.container():
         col1, col2 = st.columns(2)
         
         with col1:
-            emplacement = st.selectbox("📍 Emplacement", ["Stand VVIP", "Stand VIP", "Stand Tribune", "Stand Pelouse"])
-            produit = st.selectbox("👕 Produit", ["Tracksuit Black", "Bob", "Scarf", "Never Split Tee", "Ana Wydadia"])
-            taille = st.selectbox("📏 Taille", ["S", "M", "L", "XL", "XXL", "Unique"])
+            emplacement = st.selectbox("📍 Emplacement", STANDS)
+            produit = st.selectbox("👕 Produit", list(PRODUITS_PRIX.keys()))
+            taille = st.selectbox("📏 Taille", TAILLES)
 
         with col2:
             quantite = st.number_input("🔢 Quantité", min_value=1, value=1)
-            prix_unitaire = st.number_input("💰 Prix Unitaire (DH)", min_value=0, value=200)
+            # Le prix s'adapte automatiquement selon le produit choisi
+            prix_defaut = PRODUITS_PRIX[produit]
+            prix_unitaire = st.number_input("💰 Prix Unitaire (DH)", min_value=0, value=prix_defaut)
             mode_paiement = st.radio("💳 Paiement", ["Espèces", "Carte", "Virement"])
 
     total = quantite * prix_unitaire
-    st.subheader(f"Total : {total} DH")
+    st.markdown(f"### Total à encaisser : `{total} DH`")
 
-    if st.button("✅ Valider la vente", use_container_width=True):
+    if st.button("✅ VALIDER LA VENTE", use_container_width=True):
         date_heure = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Structure de la ligne pour ton Google Sheet
         nouvelle_vente = [date_heure, emplacement, produit, taille, quantite, prix_unitaire, total, mode_paiement]
         
         if save_sale(nouvelle_vente):
-            st.success("Vente enregistrée avec succès !")
+            st.success(f"Vente de {produit} enregistrée !")
             st.balloons()
         else:
-            st.error("Erreur lors de l'enregistrement.")
+            st.error("Erreur lors de l'enregistrement sur Google Sheets.")
+
+# --- SECTION HISTORIQUE RAPIDE ---
+st.divider()
+if st.checkbox("Afficher les dernières ventes"):
+    try:
+        data = sheet.get_all_records()
+        if data:
+            df = pd.DataFrame(data)
+            st.dataframe(df.tail(10), use_container_width=True)
+    except:
+        st.write("Aucune donnée à afficher pour le moment.")
