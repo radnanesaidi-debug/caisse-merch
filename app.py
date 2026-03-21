@@ -7,9 +7,17 @@ from google_sheets import *
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 
+# CSS pour compacter l'affichage
+st.markdown("""
+    <style>
+    .stButton button { width: 100%; padding: 0.2rem; font-size: 14px; }
+    h3 { font-size: 18px !important; margin-bottom: 5px; }
+    .stSelectbox { margin-bottom: -15px; }
+    </style>
+    """, unsafe_allow_html=True)
+
 def main():
     st.title(f"🏟️ {APP_TITLE}")
-    
     try:
         ss = get_or_create_spreadsheet()
     except Exception as e:
@@ -19,34 +27,44 @@ def main():
     tab_v, tab_d = st.tabs(["🛒 CAISSE", "📊 DASHBOARD"])
 
     with tab_v:
-        c1, c2 = st.columns([1, 3])
+        c1, c2 = st.columns([1, 4])
         with c1:
-            st.subheader("Configuration")
-            stand = st.radio("Choisir le Stand :", STAND_NAMES)
-            st.divider()
-            if st.button("↩️ Annuler dernière vente"):
+            stand = st.radio("Stand :", STAND_NAMES)
+            if st.button("↩️ Annuler"):
                 if cancel_last_sale(ss):
-                    st.success("Vente annulée !")
-                    time.sleep(1)
-                    st.rerun()
+                    st.success("Annulé !")
+                    time.sleep(1); st.rerun()
         
         with c2:
-            prods = load_products(ss)
-            cols = st.columns(2)
-            for i, p in enumerate(prods):
-                name = p.get('Nom') or p.get('name')
-                price = p.get('Prix') or p.get('price')
-                emoji = p.get('Emoji') or p.get('emoji', "📦")
-                sizes = str(p.get('Tailles') or p.get('sizes')).replace('[','').replace(']','').replace("'","").split(',')
+            all_p = load_products(ss)
+            # On regroupe par nom pour l'affichage
+            noms_produits = sorted(list(set([p['Nom'] for p in all_p])))
+            
+            # Affichage en 3 colonnes pour gagner de la place
+            cols = st.columns(3)
+            for i, nom in enumerate(noms_produits):
+                # Variantes du même produit (différentes tailles)
+                variantes = [p for p in all_p if p['Nom'] == nom]
+                p_ref = variantes[0]
+                col_stock = f"Stock {stand}"
                 
-                with cols[i % 2]:
+                with cols[i % 3]:
                     with st.container(border=True):
-                        st.markdown(f"### {emoji} {name}")
-                        st.markdown(f"**Prix : {price} DH**")
-                        sz = st.selectbox(f"Taille", [s.strip() for s in sizes], key=f"sz_{i}")
-                        if st.button(f"ENCAISSER {price} DH", key=f"btn_{i}"):
-                            record_sale(ss, stand, name, sz, price)
-                            st.toast(f"✅ Vendu : {name} ({sz})")
+                        st.markdown(f"### {p_ref['Emoji']} {nom}")
+                        
+                        # Filtrer les tailles qui ont du stock > 0
+                        tailles_dispo = [v for v in variantes if int(v.get(col_stock, 0)) > 0]
+                        
+                        if tailles_dispo:
+                            st.caption(f"Prix: {p_ref['Prix']} DH")
+                            sz = st.selectbox(f"Taille", [v['Taille'] for v in tailles_dispo], key=f"sz_{i}")
+                            if st.button(f"ENCAISSER", key=f"btn_{i}"):
+                                record_sale(ss, stand, nom, sz, p_ref['Prix'])
+                                st.toast(f"✅ Vendu: {nom}")
+                                time.sleep(0.5); st.rerun()
+                        else:
+                            st.error("🚫 SOLD OUT")
+                            st.button("EPUISE", disabled=True, key=f"dis_{i}")
 
     with tab_d:
         df = load_sales(ss)
@@ -54,28 +72,17 @@ def main():
             df['Total'] = pd.to_numeric(df['Total'], errors='coerce').fillna(0)
             df['Qté'] = pd.to_numeric(df['Qté'], errors='coerce').fillna(0)
             df_v = df[df['Statut'].str.upper().str.strip() == "VALIDE"]
-            
             if not df_v.empty:
                 m1, m2, m3 = st.columns(3)
-                m1.metric("RECETTE TOTALE", f"{int(df_v['Total'].sum())} DH")
-                m2.metric("ARTICLES VENDUS", int(df_v['Qté'].sum()))
-                m3.metric("VENTES TOTALES", len(df_v))
-                
-                st.divider()
+                m1.metric("RECETTE", f"{int(df_v['Total'].sum())} DH")
+                m2.metric("ARTICLES", int(df_v['Qté'].sum()))
+                m3.metric("VENTES", len(df_v))
                 g1, g2 = st.columns(2)
                 with g1:
-                    fig1 = px.pie(df_v, values='Total', names='Stand', title="Répartition CA / Stand", hole=.4)
-                    st.plotly_chart(fig1, use_container_width=True)
+                    st.plotly_chart(px.pie(df_v, values='Total', names='Stand', hole=.4), use_container_width=True)
                 with g2:
-                    fig2 = px.bar(df_v.groupby("Produit")["Qté"].sum().reset_index(), x="Produit", y="Qté", title="Top Ventes (Quantité)")
-                    st.plotly_chart(fig2, use_container_width=True)
-                
-                st.subheader("Détail des ventes")
+                    st.plotly_chart(px.bar(df_v.groupby("Produit")["Qté"].sum().reset_index(), x="Produit", y="Qté"), use_container_width=True)
                 st.dataframe(df_v.sort_values("Date", ascending=False), use_container_width=True)
-            else:
-                st.warning("Aucune vente validée dans le fichier.")
-        else:
-            st.info("Le Dashboard sera visible après la première vente.")
 
 if __name__ == "__main__":
     main()
