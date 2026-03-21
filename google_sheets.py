@@ -5,16 +5,26 @@ import json
 
 def get_google_sheet(sheet_name):
     try:
-        # On lit le secret comme une chaîne de caractères JSON
+        # 1. On charge le JSON depuis les secrets
         service_account_info = json.loads(st.secrets["gcp_service_account"])
-        creds = Credentials.from_service_account_info(service_account_info)
         
+        # 2. Définition des permissions (Scopes) standard
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+        
+        # 3. Création des credentials avec les bons scopes
+        creds = Credentials.from_service_account_info(service_account_info, scopes=scopes)
+        
+        # 4. Connexion
         client = gspread.authorize(creds)
         
-        # On utilise ton vrai nom de fichier
+        # 5. Ouverture du fichier
         spreadsheet = client.open("Caisse_Merchandising")
         sheet = spreadsheet.worksheet(sheet_name)
         return sheet, None
+        
     except Exception as e:
         return None, str(e)
 
