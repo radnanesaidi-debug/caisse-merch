@@ -1,8 +1,6 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import pandas as pd
 import os
-import streamlit as st
 
 # Configuration Google Sheets
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -11,20 +9,15 @@ SERVICE_ACCOUNT_FILE = "credential.json"
 def get_google_sheet(sheet_name):
     try:
         if not os.path.exists(SERVICE_ACCOUNT_FILE):
-            return None, f"Fichier {SERVICE_ACCOUNT_FILE} absent sur GitHub."
+            return None, f"Fichier {SERVICE_ACCOUNT_FILE} introuvable."
             
-        # Chargement des credentials
         creds = ServiceAccountCredentials.from_json_keyfile_name(SERVICE_ACCOUNT_FILE, SCOPES)
-        
-        # Connexion
         client = gspread.authorize(creds)
         
-        # Ouverture du fichier
         spreadsheet = client.open("Ventes_Merch")
         sheet = spreadsheet.worksheet(sheet_name)
         return sheet, None
     except Exception as e:
-        # Retourne l'erreur précise pour le debug
         return None, str(e)
 
 def save_sale(data, sheet_name="Ventes"):
