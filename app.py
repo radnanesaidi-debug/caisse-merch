@@ -36,37 +36,67 @@ def main():
                     time.sleep(1); st.rerun()
         
         with c2:
-            all_p = load_products(ss)
-            # On regroupe par nom pour l'affichage
-            noms_produits = sorted(list(set([p['Nom'] for p in all_p])))
+            # On charge les produits depuis Google Sheets
+            raw_products = load_products(ss)
             
-            # Affichage en 3 colonnes pour gagner de la place
-            cols = st.columns(3)
-            for i, nom in enumerate(noms_produits):
-                # Variantes du même produit (différentes tailles)
-                variantes = [p for p in all_p if p['Nom'] == nom]
-                p_ref = variantes[0]
-                col_stock = f"Stock {stand}"
+            # --- NETTOYAGE DES DONNÉES (Pour éviter le KeyError) ---
+            all_p_clean = []
+            for p in raw_products:
+                # On essaie toutes les variantes de noms de colonnes possibles
+                nom = p.get('Nom') or p.get('nom') or p.get('Name') or p.get('name')
+                taille = p.get('Taille') or p.get('taille') or p.get('Size') or p.get('size')
+                prix = p.get('Prix') or p.get('prix') or p.get('Price') or p.get('price')
                 
-                with cols[i % 3]:
-                    with st.container(border=True):
-                        st.markdown(f"### {p_ref['Emoji']} {nom}")
-                        
-                        # Filtrer les tailles qui ont du stock > 0
-                        tailles_dispo = [v for v in variantes if int(v.get(col_stock, 0)) > 0]
-                        
-                        if tailles_dispo:
-                            st.caption(f"Prix: {p_ref['Prix']} DH")
-                            sz = st.selectbox(f"Taille", [v['Taille'] for v in tailles_dispo], key=f"sz_{i}")
-                            if st.button(f"ENCAISSER", key=f"btn_{i}"):
-                                record_sale(ss, stand, nom, sz, p_ref['Prix'])
-                                st.toast(f"✅ Vendu: {nom}")
-                                time.sleep(0.5); st.rerun()
-                        else:
-                            st.error("🚫 SOLD OUT")
-                            st.button("EPUISE", disabled=True, key=f"dis_{i}")
+                # Si la ligne a au moins un nom et une taille, on l'accepte
+                if nom and taille:
+                    clean_p = {
+                        'Nom': str(nom),
+                        'Taille': str(taille),
+                        'Prix': prix or 0,
+                        'Emoji': p.get('Emoji') or p.get('emoji', '📦')
+                    }
+                    # On ajoute les stocks dynamiquement selon tes stands
+                    for s in STAND_NAMES:
+                        col_stock = f"Stock {s}"
+                        clean_p[col_stock] = p.get(col_stock, 0)
+                    all_p_clean.append(clean_p)
+
+            # --- AFFICHAGE ---
+            if not all_p_clean:
+                st.warning("Aucun produit trouvé. Vérifie les titres de ton Google Sheet.")
+            else:
+                noms_produits = sorted(list(set([p['Nom'] for p in all_p_clean])))
+                cols = st.columns(3)
+                
+                for i, nom in enumerate(noms_produits):
+                    variantes = [p for p in all_p_clean if p['Nom'] == nom]
+                    p_ref = variantes[0]
+                    col_stock_select = f"Stock {stand}"
+                    
+                    with cols[i % 3]:
+                        with st.container(border=True):
+                            st.markdown(f"### {p_ref['Emoji']} {nom}")
+                            
+                            # Filtrer uniquement les tailles avec du stock > 0
+                            tailles_dispo = [v for v in variantes if int(float(v.get(col_stock_select, 0))) > 0]
+                            
+                            if tailles_dispo:
+                                st.caption(f"Prix: {p_ref['Prix']} DH")
+                                liste_tailles = [v['Taille'] for v in tailles_dispo]
+                                sz = st.selectbox(f"Taille", liste_tailles, key=f"sz_{i}")
+                                
+                                if st.button(f"ENCAISSER", key=f"btn_{i}"):
+                                    # On récupère le prix spécifique à la taille choisie
+                                    prix_final = [v['Prix'] for v in tailles_dispo if v['Taille'] == sz][0]
+                                    record_sale(ss, stand, nom, sz, prix_final)
+                                    st.toast(f"✅ Vendu: {nom} ({sz})")
+                                    time.sleep(0.5); st.rerun()
+                            else:
+                                st.error("🚫 SOLD OUT")
+                                st.button("ÉPUISÉ", disabled=True, key=f"dis_{i}")
 
     with tab_d:
+        # Code du dashboard reste identique
         df = load_sales(ss)
         if not df.empty:
             df['Total'] = pd.to_numeric(df['Total'], errors='coerce').fillna(0)
