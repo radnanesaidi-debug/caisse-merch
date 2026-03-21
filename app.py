@@ -2,18 +2,19 @@ import streamlit as st
 import pandas as pd
 from google_sheets import get_google_sheet, save_sale
 from datetime import datetime
-from config import *
+
+# Titre de l'application
+APP_TITLE = "CAISSE MERCHANDISING"
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
-
-# Interface
 st.title(f"🏟️ {APP_TITLE}")
 
 # Initialisation de la connexion
 sheet, error = get_google_sheet("Ventes")
 
 if error:
-    st.error(f"Erreur de connexion : {error}")
+    st.error(f"⚠️ Erreur de connexion Google : {error}")
+    st.info("Astuce : Vérifie que le fichier 'Ventes_Merch' est bien partagé avec l'adresse email de ton compte de service.")
 else:
     # --- FORMULAIRE DE VENTE ---
     with st.container():
@@ -37,7 +38,7 @@ else:
         nouvelle_vente = [date_heure, emplacement, produit, taille, quantite, prix_unitaire, total, mode_paiement]
         
         if save_sale(nouvelle_vente):
-            st.success("Vente enregistrée avec succès dans Google Sheets !")
+            st.success("Vente enregistrée avec succès !")
             st.balloons()
         else:
             st.error("Erreur lors de l'enregistrement.")
