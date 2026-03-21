@@ -1,54 +1,26 @@
-import os
 import gspread
-import streamlit as st
+from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
-from datetime import datetime
-from google.oauth2.service_account import Credentials
-from config import *
+import os
 
+# Configuration Google Sheets
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-CREDENTIAL_FILE = "credential.json"
+SERVICE_ACCOUNT_FILE = "credential.json"
 
-@st.cache_resource(ttl=1200)
-def get_gspread_client():
-    creds = Credentials.from_service_account_file(CREDENTIAL_FILE, scopes=SCOPES)
-    return gspread.authorize(creds)
-
-def get_or_create_spreadsheet():
-    client = get_gspread_client()
-    return client.open(SPREADSHEET_NAME)
-
-def load_products(spreadsheet):
+def get_google_sheet(sheet_name):
     try:
-        ws = spreadsheet.worksheet(SHEET_PRODUCTS)
-        records = ws.get_all_records()
-        return records if records else DEFAULT_PRODUCTS
-    except:
-        return DEFAULT_PRODUCTS
-
-def record_sale(spreadsheet, stand, product, size, price):
-    ws = spreadsheet.worksheet(SHEET_SALES)
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    sale_id = datetime.now().strftime("%H%M%S")
-    # Ordre : ID, Date, Stand, Produit, Taille, Prix, Qté, Total, Statut
-    row = [sale_id, now, stand, product, size, price, 1, price, "VALIDE"]
-    ws.append_row(row, value_input_option="USER_ENTERED")
-
-def load_sales(spreadsheet):
-    try:
-        ws = spreadsheet.worksheet(SHEET_SALES)
-        data = ws.get_all_values()
-        if len(data) > 1:
-            return pd.DataFrame(data[1:], columns=["ID", "Date", "Stand", "Produit", "Taille", "Prix", "Qté", "Total", "Statut"])
-        return pd.DataFrame()
-    except:
-        return pd.DataFrame()
-
-def cancel_last_sale(spreadsheet):
-    ws = spreadsheet.worksheet(SHEET_SALES)
-    all_vals = ws.get_all_values()
-    for i in range(len(all_vals)-1, 0, -1):
-        if all_vals[i][8] == "VALIDE":
-            ws.update_cell(i+1, 9, "ANNULÉE")
-            return True
-    return False
+        # On force la lecture du fichier JSON pour s'assurer qu'il est bien chargé
+        if not os.path.exists(SERVICE_ACCOUNT_FILE):
+            return None, f"Erreur : Le fichier {SERVICE_ACCOUNT_FILE} est introuvable."
+            
+        creds = ServiceAccountCredentials.from_json_keyfile_name(SERVICE_ACCOUNT_FILE, SCOPES)
+        
+        # CETTE LIGNE EST LA SOLUTION : Elle ignore les petits décalages d'heure
+        creds.expiry = None 
+        
+        client = gspread.authorize(creds)
+        spreadsheet = client.open("Ventes_Merch")
+        sheet = spreadsheet.worksheet(sheet_name)
+        return sheet, None
+    except Exception as e:
+        return None, str(e)
