@@ -30,4 +30,3 @@ def save_sale(data, sheet_name="Ventes"):
         sheet.append_row(data)
         return True
     return False
-        return None, str(e)
