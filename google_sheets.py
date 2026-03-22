@@ -26,40 +26,36 @@ def load_products(_spreadsheet):
         ws = _spreadsheet.worksheet(SHEET_PRODUCTS)
         return ws.get_all_records()
     except:
-        st.error("Impossible de lire l'onglet Produits")
         return []
 
 def record_sale(spreadsheet, stand, product, size, price):
-    # 1. Enregistre la vente
     ws_sales = spreadsheet.worksheet(SHEET_SALES)
+    # Vérification auto des titres si feuille vide
+    if not ws_sales.get_all_values():
+        headers = ["ID", "Date", "Stand", "Produit", "Taille", "Prix", "Qté", "Total", "Statut"]
+        ws_sales.append_row(headers)
+        
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     sale_id = datetime.now().strftime("%H%M%S")
     row = [sale_id, now, stand, product, size, price, 1, price, "VALIDE"]
     ws_sales.append_row(row, value_input_option="USER_ENTERED")
 
-    # 2. Déduction du Stock ultra-précise
     try:
         ws_prod = spreadsheet.worksheet(SHEET_PRODUCTS)
-        all_data = ws_prod.get_all_values() # On prend tout pour trouver la ligne
-        
-        # Mapping des colonnes basé sur ton image :
-        # A=Nom(0), B=Prix(1), C=Taille(2), D=Emoji(3), E=Actif(4), F=VVIP(5), G=VIP(6), H=ZONE2(7)
+        all_data = ws_prod.get_all_values()
         col_map = {"Stand VVIP": 6, "VIP": 7, "ZONE 2": 8}
         col_idx = col_map.get(stand)
 
         for i, r in enumerate(all_data):
-            if i == 0: continue # Skip header
-            # Match Nom ET Taille (sans espaces, sans casse)
+            if i == 0: continue
             if str(r[0]).strip().lower() == str(product).strip().lower() and \
                str(r[2]).strip().lower() == str(size).strip().lower():
-                
                 current_stock = int(float(r[col_idx-1] or 0))
-                new_stock = max(0, current_stock - 1)
-                ws_prod.update_cell(i + 1, col_idx, new_stock)
-                st.cache_data.clear() # Reset cache pour mise à jour immédiate
+                ws_prod.update_cell(i + 1, col_idx, max(0, current_stock - 1))
+                st.cache_data.clear()
                 break
     except Exception as e:
-        st.error(f"Erreur mise à jour stock : {e}")
+        st.error(f"Erreur Stock : {e}")
 
 @st.cache_data(ttl=60)
 def load_sales(_spreadsheet):
