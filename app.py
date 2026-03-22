@@ -7,7 +7,7 @@ from google_sheets import *
 
 st.set_page_config(page_title=APP_TITLE, layout="wide", page_icon="🏟️")
 
-# --- CSS CUSTOM (Le secret de la prime) ---
+# --- CSS CUSTOM ---
 st.markdown("""
     <style>
     /* Style global des boutons d'encaissement */
@@ -42,19 +42,23 @@ st.markdown("""
     h3 { color: #1E1E1E; margin-bottom: 5px !important; }
     .stock-label { font-weight: bold; padding: 4px 8px; background: #f8f9fa; border-radius: 4px; }
     
-    /* Réduction de l'espace en haut pour éviter le scroll */
-    .block-container { padding-top: 2rem !important; }
+    /* Force l'alignement du logo au centre */
+    .logo-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 0px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 def main():
-    # --- AFFICHAGE DU LOGO PETIT ET CENTRÉ ---
-    # On utilise des colonnes plus larges sur les côtés pour écraser le logo au milieu
-    col_l1, col_l2, col_l3 = st.columns([2, 0.4, 2]) 
-    with col_l2:
-        st.image("https://i.ibb.co/C3Chk581/votre-image.png", use_container_width=True)
+    # --- LOGO FIXE (Taille forcée pour Mobile & PC) ---
+    st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+    # width=80 permet de garder le logo petit même sur iPhone/Android
+    st.image("https://i.ibb.co/C3Chk581/votre-image.png", width=80)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown(f"<h1 style='text-align: center; margin-top: -20px;'>🏟️ {APP_TITLE}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align: center; margin-top: -10px;'>🏟️ {APP_TITLE}</h2>", unsafe_allow_html=True)
     
     try:
         ss = get_or_create_spreadsheet()
