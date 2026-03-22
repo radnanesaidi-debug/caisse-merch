@@ -56,14 +56,15 @@ def main():
         st.error(f"Erreur connexion : {e}")
         return
 
-    tab_v, tab_d = st.tabs(["🛒 ESPACE CAISSE", "📊 STATISTIQUES LIVE"])
+    # --- AJOUT DE L'ONGLET TRANSFERTS ---
+    tab_v, tab_t, tab_d = st.tabs(["🛒 ESPACE CAISSE", "🔄 TRANSFERTS", "📊 STATISTIQUES LIVE"])
 
     with tab_v:
         c1, c2 = st.columns([1, 4])
         with c1:
             st.markdown("### ⚙️ RÉGLAGES")
             stand = st.radio("Stand Actif :", STAND_NAMES)
-            mode_paye = st.radio("Mode de Paiement :", PAYMENT_MODES) # Nouveau
+            mode_paye = st.radio("Mode de Paiement :", PAYMENT_MODES)
             st.divider()
             if st.button("↩️ Annuler Vente"):
                 if cancel_last_sale(ss):
@@ -104,6 +105,29 @@ def main():
                             st.error("🚫 RUPTURE")
                             st.button("ÉPUISÉ", disabled=True, key=f"off_{i}")
 
+    # --- CONTENU ONGLET TRANSFERTS ---
+    with tab_t:
+        st.markdown("### 📦 TRANSFERT DE STOCK")
+        raw_p = load_products(ss)
+        if raw_p:
+            n_uniques = sorted(list(set([str(p['Nom']).strip() for p in raw_p if p['Nom']])))
+            t_col1, t_col2 = st.columns(2)
+            with t_col1:
+                t_prod = st.selectbox("Produit", n_uniques)
+                t_sizes = [str(p['Taille']) for p in raw_p if str(p['Nom']).strip() == t_prod]
+                t_sz = st.selectbox("Taille ", t_sizes)
+            with t_col2:
+                t_from = st.selectbox("DE :", STAND_NAMES)
+                t_to = st.selectbox("VERS :", [s for s in STAND_NAMES if s != t_from])
+            
+            t_qty = st.number_input("Quantité", min_value=1, step=1)
+            if st.button("🚀 CONFIRMER LE TRANSFERT", use_container_width=True):
+                ok, res = process_transfer(ss, t_prod, t_sz, t_from, t_to, t_qty)
+                if ok:
+                    st.success(res)
+                    time.sleep(1); st.rerun()
+                else: st.error(res)
+
     with tab_d:
         df = load_sales(ss)
         if not df.empty:
@@ -111,17 +135,14 @@ def main():
             df_v = df[df['Statut'].str.upper().str.strip() == "VALIDE"]
             
             if not df_v.empty:
-                # Métriques principales
                 m1, m2, m3 = st.columns(3)
                 m1.metric("💰 CA TOTAL", f"{int(df_v['Total'].sum())} DH")
                 m2.metric("💳 TOTAL TPE", f"{int(df_v[df_v['Mode'] == 'TPE']['Total'].sum())} DH")
                 m3.metric("💵 TOTAL ESPECE", f"{int(df_v[df_v['Mode'] == 'ESPECE']['Total'].sum())} DH")
                 
                 st.divider()
-                # Détail par Stand et Mode
                 st.markdown("### 📊 Détail par Stand et Mode")
                 fig_pay = px.bar(df_v, x="Stand", y="Total", color="Mode", barmode="group",
-                               title="Répartition des revenus par Stand et Paiement",
                                color_discrete_map={"ESPECE": "#4CAF50", "TPE": "#2196F3"})
                 st.plotly_chart(fig_pay, use_container_width=True)
 
