@@ -7,10 +7,10 @@ from google_sheets import *
 
 st.set_page_config(page_title=APP_TITLE, layout="wide", page_icon="🏟️")
 
-# --- CSS CUSTOM ---
+# --- CSS CUSTOM (Le blindage final) ---
 st.markdown("""
     <style>
-    /* Style global des boutons d'encaissement */
+    /* Style global des boutons */
     .stButton > button {
         background-color: #FF4B4B !important;
         color: white !important;
@@ -25,37 +25,44 @@ st.markdown("""
         background-color: #D32F2F !important;
         transform: scale(1.02);
     }
-    /* Style spécial pour le bouton Annuler (Gris) */
-    [data-testid="stSidebar"] .stButton > button, 
-    .stColumn:first-child .stButton > button {
-        background-color: #f0f2f6 !important;
-        color: #31333F !important;
-        height: 2.5rem !important;
-        font-weight: 500 !important;
-    }
+    
     /* Cartes produits */
     div[data-testid="stVerticalBlock"] > div[style*="border: 1px solid"] {
         border-radius: 15px !important;
         padding: 15px !important;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
+    
+    /* LE FIX DU LOGO CENTRÉ (FONCTIONNE SUR MOBILE) */
+    .logo-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    .logo-img {
+        width: 80px; /* Taille fixe du logo */
+    }
+    
     h3 { color: #1E1E1E; margin-bottom: 5px !important; }
     .stock-label { font-weight: bold; padding: 4px 8px; background: #f8f9fa; border-radius: 4px; }
-    
-    /* Supprime les marges inutiles en haut */
     .block-container { padding-top: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
 def main():
-    # --- LOGO PETIT ET CENTRÉ (Fix pour Mobile/PC) ---
-    # On crée 3 colonnes : la centrale est très étroite pour le logo
-    _, col_logo, _ = st.columns([2, 1, 2])
-    with col_logo:
-        # width=80 le garde petit, use_container_width=True dans la colonne le centre
-        st.image("https://i.ibb.co/C3Chk581/votre-image.png", width=80)
+    # --- LOGO CENTRÉ VIA HTML (Infaillible) ---
+    st.markdown(
+        """
+        <div class="logo-container">
+            <img src="https://i.ibb.co/C3Chk581/votre-image.png" class="logo-img">
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
-    st.markdown(f"<h2 style='text-align: center; margin-top: -10px;'>🏟️ {APP_TITLE}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align: center; margin-top: -5px;'>🏟️ {APP_TITLE}</h2>", unsafe_allow_html=True)
     
     try:
         ss = get_or_create_spreadsheet()
