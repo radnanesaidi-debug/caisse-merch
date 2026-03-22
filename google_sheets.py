@@ -28,7 +28,7 @@ def load_products(_spreadsheet):
     except:
         return []
 
-def record_sale(spreadsheet, stand, product, size, price, mode): # Ajout mode
+def record_sale(spreadsheet, stand, product, size, price, mode):
     ws_sales = spreadsheet.worksheet(SHEET_SALES)
     if not ws_sales.get_all_values():
         headers = ["ID", "Date", "Stand", "Produit", "Taille", "Prix", "Qté", "Total", "Statut", "Mode"]
@@ -62,7 +62,6 @@ def load_sales(_spreadsheet):
         ws = _spreadsheet.worksheet(SHEET_SALES)
         data = ws.get_all_values()
         if len(data) > 1:
-            # Ajout de la colonne Mode dans le DataFrame
             return pd.DataFrame(data[1:], columns=["ID", "Date", "Stand", "Produit", "Taille", "Prix", "Qté", "Total", "Statut", "Mode"])
         return pd.DataFrame()
     except:
@@ -99,3 +98,38 @@ def cancel_last_sale(spreadsheet):
     except Exception as e:
         st.error(f"Erreur annulation : {e}")
         return False
+
+# --- NOUVELLE FONCTION TRANSFERT ---
+def process_transfer(spreadsheet, product, size, from_stand, to_stand, qty):
+    try:
+        ws_prod = spreadsheet.worksheet(SHEET_PRODUCTS)
+        all_data = ws_prod.get_all_values()
+        col_map = {"Stand VVIP": 6, "VIP": 7, "ZONE 2": 8}
+        col_from = col_map.get(from_stand)
+        col_to = col_map.get(to_stand)
+
+        for i, r in enumerate(all_data):
+            if i == 0: continue
+            if str(r[0]).strip().lower() == str(product).strip().lower() and \
+               str(r[2]).strip().lower() == str(size).strip().lower():
+                
+                stock_src = int(float(r[col_from-1] or 0))
+                stock_dest = int(float(r[col_to-1] or 0))
+
+                if stock_src < qty:
+                    return False, f"Stock insuffisant ({stock_src} dispo)"
+
+                ws_prod.update_cell(i + 1, col_from, stock_src - qty)
+                ws_prod.update_cell(i + 1, col_to, stock_dest + qty)
+                
+                try:
+                    ws_trans = spreadsheet.worksheet("Transferts")
+                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    ws_trans.append_row([now, product, size, from_stand, to_stand, qty])
+                except: pass
+                
+                st.cache_data.clear()
+                return True, "Transfert OK"
+        return False, "Produit non trouvé"
+    except Exception as e:
+        return False, str(e)
