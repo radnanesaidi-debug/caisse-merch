@@ -56,7 +56,6 @@ def main():
         st.error(f"Erreur connexion : {e}")
         return
 
-    # --- AJOUT DE L'ONGLET TRANSFERTS ---
     tab_v, tab_t, tab_d = st.tabs(["🛒 ESPACE CAISSE", "🔄 TRANSFERTS", "📊 STATISTIQUES LIVE"])
 
     with tab_v:
@@ -65,6 +64,10 @@ def main():
             st.markdown("### ⚙️ RÉGLAGES")
             stand = st.radio("Stand Actif :", STAND_NAMES)
             mode_paye = st.radio("Mode de Paiement :", PAYMENT_MODES)
+            
+            # --- OPTION AFFICHAGE IMAGES ---
+            show_images = st.toggle("🖼️ Afficher les photos", value=False)
+            
             st.divider()
             if st.button("↩️ Annuler Vente"):
                 if cancel_last_sale(ss):
@@ -87,6 +90,10 @@ def main():
                 
                 with cols[i % 3]:
                     with st.container(border=True):
+                        # --- AFFICHAGE DE LA PHOTO SI OPTION ACTIVÉE ---
+                        if show_images and p_ref.get('Image'):
+                            st.image(p_ref['Image'], use_container_width=True)
+                        
                         st.markdown(f"### {p_ref.get('Emoji', '📦')} {nom}")
                         tailles_dispo = [v for v in variantes if int(float(v.get(col_stock, 0))) > 0]
                         
@@ -105,7 +112,7 @@ def main():
                             st.error("🚫 RUPTURE")
                             st.button("ÉPUISÉ", disabled=True, key=f"off_{i}")
 
-    # --- CONTENU ONGLET TRANSFERTS ---
+    # --- ONGLET TRANSFERTS ---
     with tab_t:
         st.markdown("### 📦 TRANSFERT DE STOCK")
         raw_p = load_products(ss)
@@ -128,6 +135,7 @@ def main():
                     time.sleep(1); st.rerun()
                 else: st.error(res)
 
+    # --- DASHBOARD (STATISTIQUES) ---
     with tab_d:
         df = load_sales(ss)
         if not df.empty:
