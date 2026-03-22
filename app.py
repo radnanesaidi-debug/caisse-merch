@@ -41,17 +41,20 @@ st.markdown("""
     }
     h3 { color: #1E1E1E; margin-bottom: 5px !important; }
     .stock-label { font-weight: bold; padding: 4px 8px; background: #f8f9fa; border-radius: 4px; }
+    
+    /* Réduction de l'espace en haut pour éviter le scroll */
+    .block-container { padding-top: 2rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
 def main():
-    # --- AFFICHAGE DU LOGO CENTRÉ ---
-    col_l1, col_l2, col_l3 = st.columns([1, 0.8, 1])
+    # --- AFFICHAGE DU LOGO PETIT ET CENTRÉ ---
+    # On utilise des colonnes plus larges sur les côtés pour écraser le logo au milieu
+    col_l1, col_l2, col_l3 = st.columns([2, 0.4, 2]) 
     with col_l2:
-        # Lien direct vers l'image pour l'affichage Streamlit
         st.image("https://i.ibb.co/C3Chk581/votre-image.png", use_container_width=True)
 
-    st.title(f"🏟️ {APP_TITLE}")
+    st.markdown(f"<h1 style='text-align: center; margin-top: -20px;'>🏟️ {APP_TITLE}</h1>", unsafe_allow_html=True)
     
     try:
         ss = get_or_create_spreadsheet()
