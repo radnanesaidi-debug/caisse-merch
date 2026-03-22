@@ -26,15 +26,12 @@ def load_products(_spreadsheet):
         ws = _spreadsheet.worksheet(SHEET_PRODUCTS)
         return ws.get_all_records()
     except:
+        st.error("Impossible de lire l'onglet Produits")
         return []
 
 def record_sale(spreadsheet, stand, product, size, price):
-    # 1. Enregistre la vente (avec vérification des en-têtes)
+    # 1. Enregistre la vente
     ws_sales = spreadsheet.worksheet(SHEET_SALES)
-    if not ws_sales.get_all_values():
-        headers = ["ID", "Date", "Stand", "Produit", "Taille", "Prix", "Qté", "Total", "Statut"]
-        ws_sales.append_row(headers)
-        
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     sale_id = datetime.now().strftime("%H%M%S")
     row = [sale_id, now, stand, product, size, price, 1, price, "VALIDE"]
@@ -43,26 +40,26 @@ def record_sale(spreadsheet, stand, product, size, price):
     # 2. Déduction du Stock ultra-précise
     try:
         ws_prod = spreadsheet.worksheet(SHEET_PRODUCTS)
-        all_data = ws_prod.get_all_values()
+        all_data = ws_prod.get_all_values() # On prend tout pour trouver la ligne
         
-        # Mapping colonnes : F=Stand VVIP (6), G=VIP (7), H=ZONE 2 (8)
+        # Mapping des colonnes basé sur ton image :
+        # A=Nom(0), B=Prix(1), C=Taille(2), D=Emoji(3), E=Actif(4), F=VVIP(5), G=VIP(6), H=ZONE2(7)
         col_map = {"Stand VVIP": 6, "VIP": 7, "ZONE 2": 8}
         col_idx = col_map.get(stand)
 
         for i, r in enumerate(all_data):
-            if i == 0: continue 
-            # Match Nom (Col A) et Taille (Col C)
+            if i == 0: continue # Skip header
+            # Match Nom ET Taille (sans espaces, sans casse)
             if str(r[0]).strip().lower() == str(product).strip().lower() and \
                str(r[2]).strip().lower() == str(size).strip().lower():
                 
-                current_val = r[col_idx-1]
-                current_stock = int(float(current_val)) if current_val else 0
+                current_stock = int(float(r[col_idx-1] or 0))
                 new_stock = max(0, current_stock - 1)
                 ws_prod.update_cell(i + 1, col_idx, new_stock)
-                st.cache_data.clear() # Force le rafraîchissement immédiat de l'app
+                st.cache_data.clear() # Reset cache pour mise à jour immédiate
                 break
     except Exception as e:
-        st.error(f"Erreur stock : {e}")
+        st.error(f"Erreur mise à jour stock : {e}")
 
 @st.cache_data(ttl=60)
 def load_sales(_spreadsheet):
