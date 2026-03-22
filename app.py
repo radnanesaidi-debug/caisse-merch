@@ -42,21 +42,18 @@ st.markdown("""
     h3 { color: #1E1E1E; margin-bottom: 5px !important; }
     .stock-label { font-weight: bold; padding: 4px 8px; background: #f8f9fa; border-radius: 4px; }
     
-    /* Force l'alignement du logo au centre */
-    .logo-container {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 0px;
-    }
+    /* Supprime les marges inutiles en haut */
+    .block-container { padding-top: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
 def main():
-    # --- LOGO FIXE (Taille forcée pour Mobile & PC) ---
-    st.markdown('<div class="logo-container">', unsafe_allow_html=True)
-    # width=80 permet de garder le logo petit même sur iPhone/Android
-    st.image("https://i.ibb.co/C3Chk581/votre-image.png", width=80)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # --- LOGO PETIT ET CENTRÉ (Fix pour Mobile/PC) ---
+    # On crée 3 colonnes : la centrale est très étroite pour le logo
+    _, col_logo, _ = st.columns([2, 1, 2])
+    with col_logo:
+        # width=80 le garde petit, use_container_width=True dans la colonne le centre
+        st.image("https://i.ibb.co/C3Chk581/votre-image.png", width=80)
 
     st.markdown(f"<h2 style='text-align: center; margin-top: -10px;'>🏟️ {APP_TITLE}</h2>", unsafe_allow_html=True)
     
