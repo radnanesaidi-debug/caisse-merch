@@ -7,7 +7,7 @@ from google_sheets import *
 
 st.set_page_config(page_title=APP_TITLE, layout="wide", page_icon="🏟️")
 
-# --- CSS CUSTOM (Le blindage final) ---
+# --- CSS CUSTOM (Le blindage final contre le chevauchement) ---
 st.markdown("""
     <style>
     /* Style global des boutons */
@@ -33,26 +33,37 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     
-    /* LE FIX DU LOGO CENTRÉ (FONCTIONNE SUR MOBILE) */
+    /* FIX DU LOGO : On ajoute une marge supérieure (padding-top) pour éviter la barre Streamlit */
     .logo-container {
         display: flex;
         justify-content: center;
         align-items: center;
         width: 100%;
+        padding-top: 50px; /* Pousse le logo sous la barre supérieure */
         margin-bottom: 10px;
     }
     .logo-img {
-        width: 80px; /* Taille fixe du logo */
+        width: 80px; 
     }
     
+    /* FIX GLOBAL MOBILE/PC : On force un espace en haut de la page */
+    .block-container {
+        padding-top: 2rem !important; 
+        padding-bottom: 2rem !important;
+    }
+
+    /* Cache la barre de déploiement en haut si nécessaire pour gagner de la place */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+
     h3 { color: #1E1E1E; margin-bottom: 5px !important; }
     .stock-label { font-weight: bold; padding: 4px 8px; background: #f8f9fa; border-radius: 4px; }
-    .block-container { padding-top: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
 def main():
-    # --- LOGO CENTRÉ VIA HTML (Infaillible) ---
+    # --- LOGO CENTRÉ ET DÉGAGÉ DE LA BARRE ---
     st.markdown(
         """
         <div class="logo-container">
