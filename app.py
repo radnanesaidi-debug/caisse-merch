@@ -45,6 +45,12 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 def main():
+    # --- AFFICHAGE DU LOGO CENTRÉ ---
+    col_l1, col_l2, col_l3 = st.columns([1, 0.8, 1])
+    with col_l2:
+        # Lien direct vers l'image pour l'affichage Streamlit
+        st.image("https://i.ibb.co/C3Chk581/votre-image.png", use_container_width=True)
+
     st.title(f"🏟️ {APP_TITLE}")
     
     try:
