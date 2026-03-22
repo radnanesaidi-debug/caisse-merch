@@ -73,7 +73,7 @@ def main():
         unsafe_allow_html=True
     )
 
-    st.markdown(f"<h2 style='text-align: center; margin-top: -5px;'>🏟️ {APP_TITLE}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align: center; margin-top: -5px;'> {APP_TITLE}</h2>", unsafe_allow_html=True)
     
     try:
         ss = get_or_create_spreadsheet()
