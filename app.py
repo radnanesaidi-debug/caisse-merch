@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components # Import nécessaire pour la vibration
 import pandas as pd
 import plotly.express as px
 import time
@@ -6,6 +7,20 @@ from config import *
 from google_sheets import *
 
 st.set_page_config(page_title=APP_TITLE, layout="wide", page_icon="🏟️")
+
+# --- FONCTION VIBRATION ---
+def trigger_vibration():
+    """Déclenche une vibration courte sur mobile"""
+    components.html(
+        """
+        <script>
+        if (window.navigator && window.navigator.vibrate) {
+            window.navigator.vibrate(50);
+        }
+        </script>
+        """,
+        height=0,
+    )
 
 # CSS OPTIMISÉ : Cacher le header + Onglets stylisés
 st.markdown("""
@@ -120,12 +135,14 @@ def main():
                         with b1:
                             if st.button("💵", key=f"esp_{i}"):
                                 record_sale(ss, current_stand, nom, sz, p_ref['Prix'], "ESPECE")
+                                trigger_vibration() # <--- AJOUT VIBRATION
                                 st.cache_data.clear()
                                 st.toast(f"✅ CASH: {nom}")
                                 time.sleep(0.3); st.rerun()
                         with b2:
                             if st.button("💳", key=f"tpe_{i}"):
                                 record_sale(ss, current_stand, nom, sz, p_ref['Prix'], "TPE")
+                                trigger_vibration() # <--- AJOUT VIBRATION
                                 st.cache_data.clear()
                                 st.toast(f"✅ TPE: {nom}")
                                 time.sleep(0.3); st.rerun()
@@ -155,7 +172,7 @@ def main():
                 else:
                     st.error(msg)
 
-    # --- ONGLET STATISTIQUES (Identique à ton code source) ---
+    # --- ONGLET STATISTIQUES ---
     with tab_d:
         df_sales = load_sales(ss)
         df_trans = load_transfers(ss)
