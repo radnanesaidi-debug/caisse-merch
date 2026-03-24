@@ -23,32 +23,28 @@ def get_or_create_spreadsheet():
 @st.cache_data(ttl=60)
 def load_products(_spreadsheet):
     try:
-        ws = _spreadsheet.worksheet(SHEET_PRODUCTS)
+        # On utilise le nom direct de l'onglet pour éviter les erreurs de config
+        ws = _spreadsheet.worksheet("Produits")
         return ws.get_all_records()
     except:
         return []
 
-# --- CHARGEMENT DES VENTES (Corrigé pour les stats) ---
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=20)
 def load_sales(_spreadsheet):
     try:
-        ws = _spreadsheet.worksheet(SHEET_SALES)
+        # CORRECTION : Ton onglet s'appelle "Ventes" sur la capture
+        ws = _spreadsheet.worksheet("Ventes")
         data = ws.get_all_values()
         if len(data) > 1:
-            df = pd.DataFrame(data[1:], columns=data[0])
-            # Nettoyage rapide pour éviter les bugs de calcul
-            if 'Total' in df.columns:
-                df['Total'] = pd.to_numeric(df['Total'], errors='coerce').fillna(0)
-            return df
+            return pd.DataFrame(data[1:], columns=data[0])
         return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Erreur lecture Ventes : {e}")
+    except:
         return pd.DataFrame()
 
-# --- CHARGEMENT DES TRANSFERTS (Nouveau pour l'onglet Stats/Trans) ---
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=20)
 def load_transfers(_spreadsheet):
     try:
+        # CORRECTION : Ton onglet s'appelle "Transferts" sur la capture
         ws = _spreadsheet.worksheet("Transferts")
         data = ws.get_all_values()
         if len(data) > 1:
@@ -58,18 +54,17 @@ def load_transfers(_spreadsheet):
         return pd.DataFrame()
 
 def record_sale(spreadsheet, stand, product, size, price, mode):
-    ws_sales = spreadsheet.worksheet(SHEET_SALES)
-    if not ws_sales.get_all_values():
-        headers = ["ID", "Date", "Stand", "Produit", "Taille", "Prix", "Qté", "Total", "Statut", "Mode"]
-        ws_sales.append_row(headers)
-        
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    sale_id = datetime.now().strftime("%H%M%S")
-    row = [sale_id, now, stand, product, size, price, 1, price, "VALIDE", mode]
-    ws_sales.append_row(row, value_input_option="USER_ENTERED")
-
     try:
-        ws_prod = spreadsheet.worksheet(SHEET_PRODUCTS)
+        ws_sales = spreadsheet.worksheet("Ventes")
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        sale_id = datetime.now().strftime("%H%M%S")
+        
+        # Ordre des colonnes selon ta capture : ID, Date, Stand, Produit, Taille, Prix, Qté, Total, Statut, Mode
+        row = [sale_id, now, stand, product, size, price, 1, price, "VALIDE", mode]
+        ws_sales.append_row(row, value_input_option="USER_ENTERED")
+
+        # Mise à jour Stock (Colonnes F, G, H d'après tes messages précédents)
+        ws_prod = spreadsheet.worksheet("Produits")
         all_data = ws_prod.get_all_values()
         col_map = {"Stand VVIP": 6, "VIP": 7, "ZONE 2": 8}
         col_idx = col_map.get(stand)
@@ -78,77 +73,65 @@ def record_sale(spreadsheet, stand, product, size, price, mode):
             if i == 0: continue
             if str(r[0]).strip().lower() == str(product).strip().lower() and \
                str(r[2]).strip().lower() == str(size).strip().lower():
-                current_stock = int(float(r[col_idx-1] or 0))
-                ws_prod.update_cell(i + 1, col_idx, max(0, current_stock - 1))
-                st.cache_data.clear()
+                curr_stock = int(float(r[col_idx-1] or 0))
+                ws_prod.update_cell(i + 1, col_idx, max(0, curr_stock - 1))
                 break
+        st.cache_data.clear()
     except Exception as e:
-        st.error(f"Erreur Stock : {e}")
-
-def cancel_last_sale(spreadsheet):
-    try:
-        ws_sales = spreadsheet.worksheet(SHEET_SALES)
-        all_vals = ws_sales.get_all_values()
-        for i in range(len(all_vals)-1, 0, -1):
-            row_data = all_vals[i]
-            if row_data[8] == "VALIDE":
-                stand_vendu = row_data[2]
-                produit_vendu = row_data[3]
-                taille_vendue = row_data[4]
-                ws_sales.update_cell(i+1, 9, "ANNULÉE")
-                try:
-                    ws_prod = spreadsheet.worksheet(SHEET_PRODUCTS)
-                    prod_data = ws_prod.get_all_values()
-                    col_map = {"Stand VVIP": 6, "VIP": 7, "ZONE 2": 8}
-                    col_idx = col_map.get(stand_vendu)
-                    for j, r in enumerate(prod_data):
-                        if j == 0: continue
-                        if str(r[0]).strip().lower() == str(produit_vendu).strip().lower() and \
-                           str(r[2]).strip().lower() == str(taille_vendue).strip().lower():
-                            current_stock = int(float(r[col_idx-1] or 0))
-                            ws_prod.update_cell(j + 1, col_idx, current_stock + 1)
-                            break
-                except Exception as stock_err:
-                    st.error(f"Erreur remise en stock : {stock_err}")
-                st.cache_data.clear()
-                return True
-        return False
-    except Exception as e:
-        st.error(f"Erreur annulation : {e}")
-        return False
+        st.error(f"Erreur technique : {e}")
 
 def process_transfer(spreadsheet, product, size, from_stand, to_stand, qty):
     try:
-        ws_prod = spreadsheet.worksheet(SHEET_PRODUCTS)
+        ws_prod = spreadsheet.worksheet("Produits")
         all_data = ws_prod.get_all_values()
         col_map = {"Stand VVIP": 6, "VIP": 7, "ZONE 2": 8}
-        col_from = col_map.get(from_stand)
-        col_to = col_map.get(to_stand)
+        col_from, col_to = col_map.get(from_stand), col_map.get(to_stand)
 
         for i, r in enumerate(all_data):
             if i == 0: continue
             if str(r[0]).strip().lower() == str(product).strip().lower() and \
                str(r[2]).strip().lower() == str(size).strip().lower():
                 
-                stock_src = int(float(r[col_from-1] or 0))
-                stock_dest = int(float(r[col_to-1] or 0))
+                s_from = int(float(r[col_from-1] or 0))
+                s_to = int(float(r[col_to-1] or 0))
+                if s_from < qty: return False, "Stock insuffisant"
 
-                if stock_src < qty:
-                    return False, f"Stock insuffisant ({stock_src} dispo)"
-
-                ws_prod.update_cell(i + 1, col_from, stock_src - qty)
-                ws_prod.update_cell(i + 1, col_to, stock_dest + qty)
+                ws_prod.update_cell(i + 1, col_from, s_from - qty)
+                ws_prod.update_cell(i + 1, col_to, s_to + qty)
                 
-                try:
-                    ws_trans = spreadsheet.worksheet("Transferts")
-                    if not ws_trans.get_all_values():
-                        ws_trans.append_row(["Date", "Produit", "Taille", "De", "Vers", "Quantité"])
-                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    ws_trans.append_row([now, product, size, from_stand, to_stand, qty])
-                except: pass
+                # Log Transfert (Colonnes selon ta capture : Date, Produit, Taille, De, Vers, Quantité)
+                ws_t = spreadsheet.worksheet("Transferts")
+                ws_t.append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), product, size, from_stand, to_stand, qty])
                 
                 st.cache_data.clear()
-                return True, "Transfert OK"
+                return True, "Transfert validé"
         return False, "Produit non trouvé"
     except Exception as e:
         return False, str(e)
+
+def cancel_last_sale(spreadsheet):
+    try:
+        ws_sales = spreadsheet.worksheet("Ventes")
+        all_vals = ws_sales.get_all_values()
+        for i in range(len(all_vals)-1, 0, -1):
+            if all_vals[i][8] == "VALIDE": # Colonne Statut
+                stand_v, prod_v, size_v = all_vals[i][2], all_vals[i][3], all_vals[i][4]
+                ws_sales.update_cell(i+1, 9, "ANNULÉE") # Colonne I (9)
+                
+                # Remise en stock
+                ws_prod = spreadsheet.worksheet("Produits")
+                p_data = ws_prod.get_all_values()
+                col_map = {"Stand VVIP": 6, "VIP": 7, "ZONE 2": 8}
+                col_idx = col_map.get(stand_v)
+                for j, r in enumerate(p_data):
+                    if j == 0: continue
+                    if str(r[0]).strip().lower() == str(prod_v).strip().lower() and \
+                       str(r[2]).strip().lower() == str(size_v).strip().lower():
+                        curr = int(float(r[col_idx-1] or 0))
+                        ws_prod.update_cell(j + 1, col_idx, curr + 1)
+                        break
+                st.cache_data.clear()
+                return True
+        return False
+    except:
+        return False
