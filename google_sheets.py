@@ -28,6 +28,35 @@ def load_products(_spreadsheet):
     except:
         return []
 
+# --- CHARGEMENT DES VENTES (Corrigé pour les stats) ---
+@st.cache_data(ttl=30)
+def load_sales(_spreadsheet):
+    try:
+        ws = _spreadsheet.worksheet(SHEET_SALES)
+        data = ws.get_all_values()
+        if len(data) > 1:
+            df = pd.DataFrame(data[1:], columns=data[0])
+            # Nettoyage rapide pour éviter les bugs de calcul
+            if 'Total' in df.columns:
+                df['Total'] = pd.to_numeric(df['Total'], errors='coerce').fillna(0)
+            return df
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Erreur lecture Ventes : {e}")
+        return pd.DataFrame()
+
+# --- CHARGEMENT DES TRANSFERTS (Nouveau pour l'onglet Stats/Trans) ---
+@st.cache_data(ttl=30)
+def load_transfers(_spreadsheet):
+    try:
+        ws = _spreadsheet.worksheet("Transferts")
+        data = ws.get_all_values()
+        if len(data) > 1:
+            return pd.DataFrame(data[1:], columns=data[0])
+        return pd.DataFrame()
+    except:
+        return pd.DataFrame()
+
 def record_sale(spreadsheet, stand, product, size, price, mode):
     ws_sales = spreadsheet.worksheet(SHEET_SALES)
     if not ws_sales.get_all_values():
@@ -55,17 +84,6 @@ def record_sale(spreadsheet, stand, product, size, price, mode):
                 break
     except Exception as e:
         st.error(f"Erreur Stock : {e}")
-
-@st.cache_data(ttl=60)
-def load_sales(_spreadsheet):
-    try:
-        ws = _spreadsheet.worksheet(SHEET_SALES)
-        data = ws.get_all_values()
-        if len(data) > 1:
-            return pd.DataFrame(data[1:], columns=["ID", "Date", "Stand", "Produit", "Taille", "Prix", "Qté", "Total", "Statut", "Mode"])
-        return pd.DataFrame()
-    except:
-        return pd.DataFrame()
 
 def cancel_last_sale(spreadsheet):
     try:
@@ -99,7 +117,6 @@ def cancel_last_sale(spreadsheet):
         st.error(f"Erreur annulation : {e}")
         return False
 
-# --- NOUVELLE FONCTION TRANSFERT ---
 def process_transfer(spreadsheet, product, size, from_stand, to_stand, qty):
     try:
         ws_prod = spreadsheet.worksheet(SHEET_PRODUCTS)
@@ -124,6 +141,8 @@ def process_transfer(spreadsheet, product, size, from_stand, to_stand, qty):
                 
                 try:
                     ws_trans = spreadsheet.worksheet("Transferts")
+                    if not ws_trans.get_all_values():
+                        ws_trans.append_row(["Date", "Produit", "Taille", "De", "Vers", "Quantité"])
                     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     ws_trans.append_row([now, product, size, from_stand, to_stand, qty])
                 except: pass
