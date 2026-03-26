@@ -4,3 +4,4 @@ PAYMENT_MODES = ["ESPECE", "TPE"] # Nouveau
 SPREADSHEET_NAME = "Caisse_Merchandising"
 SHEET_SALES = "Ventes"
 SHEET_PRODUCTS = "Produits"
+VENDEURS = ["Adnane", "Ghali", "Ayman"]
