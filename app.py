@@ -54,7 +54,6 @@ def main():
 
     tab_v, tab_t, tab_d = st.tabs(["🛒 CAISSE", "🔄 TRANSFERTS", "📊 STATS"])
 
-    # --- ONGLET CAISSE ---
     with tab_v:
         r1, r2, r3 = st.columns([1.5, 1, 1])
         with r1:
@@ -67,10 +66,8 @@ def main():
         with r3:
             if st.button("↩️ Annul"):
                 if cancel_last_sale(ss, st.session_state.vendeur):
-                    st.toast("Vente annulée !")
+                    st.toast("Ta dernière vente est annulée !")
                     time.sleep(0.5); st.rerun()
-                else:
-                    st.error("Rien à annuler")
 
         st.divider()
         raw_p = load_products(ss)
@@ -96,25 +93,25 @@ def main():
                         b1, b2 = st.columns(2)
                         with b1:
                             if st.button("💵", key=f"esp_{i}"):
-                                record_sale(ss, current_stand, nom, sz, p_ref['Prix'], "ESPECE", st.session_state.vendeur)
-                                trigger_vibration(); st.cache_data.clear(); st.toast(f"✅ {nom}"); time.sleep(0.3); st.rerun()
+                                with st.spinner("..."):
+                                    if record_sale(ss, current_stand, nom, sz, p_ref['Prix'], "ESPECE", st.session_state.vendeur):
+                                        trigger_vibration(); st.toast(f"✅ {nom}"); time.sleep(1); st.rerun()
                         with b2:
                             if st.button("💳", key=f"tpe_{i}"):
-                                record_sale(ss, current_stand, nom, sz, p_ref['Prix'], "TPE", st.session_state.vendeur)
-                                trigger_vibration(); st.cache_data.clear(); st.toast(f"✅ {nom}"); time.sleep(0.3); st.rerun()
+                                with st.spinner("..."):
+                                    if record_sale(ss, current_stand, nom, sz, p_ref['Prix'], "TPE", st.session_state.vendeur):
+                                        trigger_vibration(); st.toast(f"✅ {nom}"); time.sleep(1); st.rerun()
                     else:
                         st.error("🚫 RUPTURE")
                         st.button("VIDE", disabled=True, key=f"empty_{i}")
 
-    # --- ONGLET TRANSFERTS ---
     with tab_t:
         st.markdown("### 📦 Transférer du stock")
         if raw_p:
             t1, t2 = st.columns(2)
             with t1:
                 t_prod = st.selectbox("Produit", noms_uniques)
-                t_sizes = [str(p['Taille']) for p in raw_p if str(p['Nom']).strip() == t_prod]
-                t_sz = st.selectbox("Taille", t_sizes)
+                t_sz = st.selectbox("Taille", [str(p['Taille']) for p in raw_p if str(p['Nom']).strip() == t_prod])
                 t_qty = st.number_input("Quantité", min_value=1, value=1)
             with t2:
                 t_from = st.selectbox("DE :", STAND_NAMES, index=STAND_NAMES.index(current_stand))
@@ -124,50 +121,37 @@ def main():
                 if success: st.success(msg); time.sleep(1); st.rerun()
                 else: st.error(msg)
 
-    # --- ONGLET STATS (RESTAURÉ) ---
     with tab_d:
         df_sales = load_sales(ss)
-        df_trans = load_transfers(ss) # Récupération des transferts
-        
+        df_trans = load_transfers(ss)
         if not df_sales.empty:
             df_sales['Total'] = pd.to_numeric(df_sales['Total'], errors='coerce').fillna(0)
             df_v = df_sales[df_sales['Statut'].str.upper().str.strip() == "VALIDE"].copy()
-            
             if not df_v.empty:
                 m1, m2, m3 = st.columns(3)
                 m1.metric("💰 CA TOTAL", f"{int(df_v['Total'].sum())} DH")
                 m2.metric("💵 CASH", f"{int(df_v[df_v['Mode'] == 'ESPECE']['Total'].sum())} DH")
                 m3.metric("💳 TPE", f"{int(df_v[df_v['Mode'] == 'TPE']['Total'].sum())} DH")
-                
                 st.divider()
+                c1, c2 = st.columns(2)
+                with c1: st.plotly_chart(px.pie(df_v, values='Total', names='Mode', hole=.4, title="Modes de Paiement"), use_container_width=True)
+                with c2: st.plotly_chart(px.bar(df_v.groupby("Produit")['Qté'].count().reset_index(), x="Produit", y="Qté", title="Top Produits"), use_container_width=True)
                 
-                # Graphiques comme avant
-                c_top1, c_top2 = st.columns(2)
-                with c_top1:
-                    fig_pie = px.pie(df_v, values='Total', names='Mode', hole=.4, title="Modes de Paiement",
-                                   color_discrete_map={"ESPECE": "#4CAF50", "TPE": "#2196F3"})
-                    st.plotly_chart(fig_pie, use_container_width=True)
-                with c_top2:
-                    prod_v = df_v.groupby("Produit")['Qté'].count().reset_index(name='Ventes')
-                    fig_bar = px.bar(prod_v, x="Produit", y="Ventes", title="Top Produits")
-                    st.plotly_chart(fig_bar, use_container_width=True)
-
-                # Tableaux de récap
-                st.markdown("### 🏪 RÉCAPITULATIF PAR STAND")
                 recap = df_v.groupby(['Stand', 'Mode'])['Total'].sum().unstack(fill_value=0)
+                st.markdown("### 🏪 RÉCAP STANDS")
                 st.table(recap)
-
-                st.markdown("### 👤 VENTES PAR VENDEUR")
+                
                 v_recap = df_v.groupby('Vendeur')['Total'].sum().reset_index()
+                st.markdown("### 👤 RÉCAP VENDEURS")
                 st.table(v_recap.set_index('Vendeur'))
 
-                with st.expander("📄 Historique complet des ventes"):
-                    st.dataframe(df_sales.sort_values("Date", ascending=False), use_container_width=True)
-                
-                # RESTAURATION DE L'HISTORIQUE TRANSFERTS
+                if st.button("📱 GÉNÉRER RAPPORT WHATSAPP", use_container_width=True):
+                    txt = f"*Rapport {datetime.now().strftime('%d/%m')}*\n💰 CA: {int(df_v['Total'].sum())} DH\n💵 Cash: {int(df_v[df_v['Mode'] == 'ESPECE']['Total'].sum())}\n💳 TPE: {int(df_v[df_v['Mode'] == 'TPE']['Total'].sum())}\n\n*Vendeurs:*\n{v_recap.to_string(index=False)}"
+                    st.text_area("Copie :", value=txt, height=150)
+
+                with st.expander("📄 Ventes"): st.dataframe(df_sales.sort_values("Date", ascending=False))
                 if not df_trans.empty:
-                    with st.expander("🔄 Historique des transferts"):
-                        st.dataframe(df_trans.sort_values("Date", ascending=False), use_container_width=True)
+                    with st.expander("🔄 Transferts"): st.dataframe(df_trans.sort_values("Date", ascending=False))
 
     if st.sidebar.button("🚪 Déconnexion"):
         st.session_state.vendeur = None
