@@ -27,7 +27,6 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 def main():
-    # --- GESTION DU VENDEUR ---
     if "vendeur" not in st.session_state:
         st.session_state.vendeur = None
 
@@ -40,7 +39,6 @@ def main():
             st.rerun()
         st.stop()
 
-    # --- LOGIQUE NORMALE ---
     if "stand" not in st.query_params:
         st.query_params["stand"] = STAND_NAMES[0]
     current_stand = st.query_params["stand"]
@@ -56,6 +54,7 @@ def main():
 
     tab_v, tab_t, tab_d = st.tabs(["🛒 CAISSE", "🔄 TRANSFERTS", "📊 STATS"])
 
+    # --- ONGLET CAISSE ---
     with tab_v:
         r1, r2, r3 = st.columns([1.5, 1, 1])
         with r1:
@@ -68,10 +67,10 @@ def main():
         with r3:
             if st.button("↩️ Annul"):
                 if cancel_last_sale(ss, st.session_state.vendeur):
-                    st.toast("Ta dernière vente est annulée !")
+                    st.toast("Vente annulée !")
                     time.sleep(0.5); st.rerun()
                 else:
-                    st.error("Aucune vente à annuler")
+                    st.error("Rien à annuler")
 
         st.divider()
         raw_p = load_products(ss)
@@ -107,6 +106,7 @@ def main():
                         st.error("🚫 RUPTURE")
                         st.button("VIDE", disabled=True, key=f"empty_{i}")
 
+    # --- ONGLET TRANSFERTS ---
     with tab_t:
         st.markdown("### 📦 Transférer du stock")
         if raw_p:
@@ -124,11 +124,15 @@ def main():
                 if success: st.success(msg); time.sleep(1); st.rerun()
                 else: st.error(msg)
 
+    # --- ONGLET STATS (RESTAURÉ) ---
     with tab_d:
         df_sales = load_sales(ss)
+        df_trans = load_transfers(ss) # Récupération des transferts
+        
         if not df_sales.empty:
             df_sales['Total'] = pd.to_numeric(df_sales['Total'], errors='coerce').fillna(0)
             df_v = df_sales[df_sales['Statut'].str.upper().str.strip() == "VALIDE"].copy()
+            
             if not df_v.empty:
                 m1, m2, m3 = st.columns(3)
                 m1.metric("💰 CA TOTAL", f"{int(df_v['Total'].sum())} DH")
@@ -136,18 +140,35 @@ def main():
                 m3.metric("💳 TPE", f"{int(df_v[df_v['Mode'] == 'TPE']['Total'].sum())} DH")
                 
                 st.divider()
+                
+                # Graphiques comme avant
+                c_top1, c_top2 = st.columns(2)
+                with c_top1:
+                    fig_pie = px.pie(df_v, values='Total', names='Mode', hole=.4, title="Modes de Paiement",
+                                   color_discrete_map={"ESPECE": "#4CAF50", "TPE": "#2196F3"})
+                    st.plotly_chart(fig_pie, use_container_width=True)
+                with c_top2:
+                    prod_v = df_v.groupby("Produit")['Qté'].count().reset_index(name='Ventes')
+                    fig_bar = px.bar(prod_v, x="Produit", y="Ventes", title="Top Produits")
+                    st.plotly_chart(fig_bar, use_container_width=True)
+
+                # Tableaux de récap
                 st.markdown("### 🏪 RÉCAPITULATIF PAR STAND")
                 recap = df_v.groupby(['Stand', 'Mode'])['Total'].sum().unstack(fill_value=0)
                 st.table(recap)
 
-                # Nouveau : Recap par vendeur
                 st.markdown("### 👤 VENTES PAR VENDEUR")
                 v_recap = df_v.groupby('Vendeur')['Total'].sum().reset_index()
                 st.table(v_recap.set_index('Vendeur'))
 
-                with st.expander("📄 Historique des ventes"):
+                with st.expander("📄 Historique complet des ventes"):
                     st.dataframe(df_sales.sort_values("Date", ascending=False), use_container_width=True)
-    
+                
+                # RESTAURATION DE L'HISTORIQUE TRANSFERTS
+                if not df_trans.empty:
+                    with st.expander("🔄 Historique des transferts"):
+                        st.dataframe(df_trans.sort_values("Date", ascending=False), use_container_width=True)
+
     if st.sidebar.button("🚪 Déconnexion"):
         st.session_state.vendeur = None
         st.rerun()
