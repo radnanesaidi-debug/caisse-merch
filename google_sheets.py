@@ -56,17 +56,15 @@ def record_sale(spreadsheet, stand, product, size, price, mode):
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         sale_id = datetime.now().strftime("%H%M%S")
         
-        # Ajout de la ligne de vente
         row = [sale_id, now, stand, product, size, price, 1, price, "VALIDE", mode]
         ws_sales.append_row(row, value_input_option="USER_ENTERED")
 
-        # Mise à jour Stock DYNAMIQUE
         ws_prod = spreadsheet.worksheet("Produits")
         headers = ws_prod.row_values(1)
         col_name = f"Stock {stand}"
         
         if col_name not in headers:
-            st.error(f"⚠️ Colonne '{col_name}' introuvable dans l'onglet Produits !")
+            st.error(f"⚠️ Colonne '{col_name}' introuvable !")
             return
 
         col_idx = headers.index(col_name) + 1
@@ -92,7 +90,7 @@ def process_transfer(spreadsheet, product, size, from_stand, to_stand, qty):
         col_to_name = f"Stock {to_stand}"
         
         if col_from_name not in headers or col_to_name not in headers:
-            return False, "Colonnes de stock introuvables (vérifiez les noms des stands)"
+            return False, "Colonnes de stock introuvables"
 
         col_from = headers.index(col_from_name) + 1
         col_to = headers.index(col_to_name) + 1
@@ -100,37 +98,41 @@ def process_transfer(spreadsheet, product, size, from_stand, to_stand, qty):
 
         for i, r in enumerate(all_data):
             if i == 0: continue
+            # Comparaison stricte pour éviter les doublons de calcul
             if str(r[0]).strip().lower() == str(product).strip().lower() and \
                str(r[2]).strip().lower() == str(size).strip().lower():
                 
                 s_from = int(float(r[col_from-1] or 0))
                 s_to = int(float(r[col_to-1] or 0))
-                if s_from < qty: return False, "Stock insuffisant"
+                
+                if s_from < qty: 
+                    return False, f"Stock insuffisant sur {from_stand} ({s_from} dispos)"
 
+                # Mise à jour des deux cellules
                 ws_prod.update_cell(i + 1, col_from, s_from - qty)
                 ws_prod.update_cell(i + 1, col_to, s_to + qty)
                 
+                # Log du transfert
                 ws_t = spreadsheet.worksheet("Transferts")
                 ws_t.append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), product, size, from_stand, to_stand, qty])
                 
                 st.cache_data.clear()
                 return True, "Transfert validé"
-        return False, "Produit non trouvé"
+                
+        return False, "Produit non trouvé dans la liste"
     except Exception as e:
-        return False, str(e)
+        return False, f"Erreur : {str(e)}"
 
 def cancel_last_sale(spreadsheet):
     try:
         ws_sales = spreadsheet.worksheet("Ventes")
         all_vals = ws_sales.get_all_values()
         
-        # On cherche la dernière vente VALIDE en partant du bas
         for i in range(len(all_vals)-1, 0, -1):
             if all_vals[i][8] == "VALIDE":
                 stand_v, prod_v, size_v = all_vals[i][2], all_vals[i][3], all_vals[i][4]
                 ws_sales.update_cell(i+1, 9, "ANNULÉE")
                 
-                # Remise en stock DYNAMIQUE
                 ws_prod = spreadsheet.worksheet("Produits")
                 headers = ws_prod.row_values(1)
                 col_name = f"Stock {stand_v}"
